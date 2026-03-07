@@ -2,3 +2,7 @@
 <p align="center">
   <img src="images/hexacopter.png" width="600">
 </p>
+
+## Simulation Demo
+
+![Hexacopter Simulation](images/demo.gif)
