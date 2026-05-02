@@ -1,17 +1,7 @@
 #!/usr/bin/env python3
 """
-Project Nebula - Threat Detector Node (v2.4.1)
-===============================================
-Target Hardware: Dell Precision 5560 (i7-11th, 32GB, RTX A2000 4GB)
-
-v2.4.1 - "Patient but Faster":
-- MULTI-FACTOR REQUIREMENT: At least 3 of 5 factors must be above their
-  individual thresholds to produce a non-zero score.
-- SUSTAINED SCORING WINDOW: Score over last 10 frames, 50% must pass.
-- CONFIRM FRAMES: 8 frames (~0.27s at 30fps).
-- POST-THREAT COOLDOWN: 15 frames (~0.5s) after clearing.
-- AFFINE CAMERA COMPENSATION: Full rotation+translation compensation.
-- GPU WARMUP: First inference runs at startup to avoid initial lag.
+Project Nebula - Threat Detector Node
+created by: @Abdelfattah Ahmed 
 """
 
 import rclpy
@@ -80,41 +70,33 @@ class ThreatDetector(Node):
         self.W_VERTICAL = 0.15
 
         # ==================== Individual Factor Thresholds ====================
-        # ✨ v2.4: كل عامل عنده threshold فردي
-        # لازم العامل يعدي الـ threshold بتاعه عشان "يتحسب" كعامل نشط
         self.FACTOR_THRESHOLDS = {
-            'overlap':   0.15,   # minimum overlap ratio
-            'proximity': 0.20,   # minimum proximity score
-            'agitation': 0.25,   # minimum agitation
-            'approach':  0.15,   # minimum approach score
-            'vertical':  0.20,   # minimum vertical overlap
+            'overlap':   0.13,
+            'proximity': 0.20,
+            'agitation': 0.25,
+            'approach':  0.15,
+            'vertical':  0.20,
         }
 
-        # ✨ v2.4: MULTI-FACTOR REQUIREMENT
-        # لازم عدد العوامل النشطة يكون >= العدد ده
-        self.MIN_ACTIVE_FACTORS = 3
+        self.MIN_ACTIVE_FACTORS = 4
 
         # ==================== Distance & Interaction Gates ====================
-        self.PROXIMITY_FACTOR = 2.5         # ⬆ من 1.8 - يمسك الأشخاص القريبين من بعض حتى لو بعيدين عن الدرون
+        self.PROXIMITY_FACTOR = 2.2         
         self.APPROACH_SPEED = 1.5
-        self.MAX_DISTANCE_FACTOR = 4.0      # ⬆ من 2.5 - يسمح بتحليل أشخاص أبعد عن بعض
+        self.MAX_DISTANCE_FACTOR = 4.0      
         self.MIN_AGITATION_GATE = 0.22
-        self.MIN_INTERACTION_SCORE = 0.10   # ⬇ من 0.15 - يسمح بحساب الـ score لأشخاص بعيدين عن الدرون
+        self.MIN_INTERACTION_SCORE = 0.10   
 
-        # ==================== Confirmation (MORE PATIENT) ====================
-        self.THREAT_SCORE_THRESHOLD = 0.48
-        self.THREAT_CONFIRM_FRAMES = 15     # ~0.67s @ 30fps
+        # ==================== Confirmation ====================
+        # ✨ TWEAK: Lowered from 0.5 to 0.45 to be more responsive from distance
+        self.THREAT_SCORE_THRESHOLD = 0.45
+        self.THREAT_CONFIRM_FRAMES = 15     
         self.NO_THREAT_FRAMES = 40
 
-        # ✨ v2.4: SUSTAINED SCORING WINDOW
-        # بنحسب متوسط الـ score على آخر N فريم
-        # spike واحد مش هيعدي الـ threshold
         self.score_history = deque(maxlen=30)
-        self.MIN_SUSTAINED_RATIO = 0.60     # 60% من آخر 30 فريم (~1 ثانية)
+        self.MIN_SUSTAINED_RATIO = 0.60     
 
-        # ✨ v2.4: POST-THREAT COOLDOWN
-        # بعد ما الـ threat يتلغي، بننتظر قبل ما نسمح بـ threat جديد
-        self.POST_THREAT_COOLDOWN = 15      # ~0.5 ثانية (كان 30)
+        self.POST_THREAT_COOLDOWN = 15      
         self.cooldown_counter = 0
         self.in_cooldown = False
 
@@ -126,7 +108,7 @@ class ThreatDetector(Node):
 
         # Pair consistency
         self.pair_threat_history = {}
-        self.PAIR_HISTORY_LEN = 15          # ⬆ أطول عشان أدق
+        self.PAIR_HISTORY_LEN = 15          
         self.MIN_PAIR_CONSISTENCY = 0.4
 
         # ==================== State ====================
@@ -135,14 +117,11 @@ class ThreatDetector(Node):
         self.threat_log_counter = 0
         self.THREAT_LOG_INTERVAL = 15
 
-        # ✨ v2.4.3: THREAT LOCK SYSTEM
-        # لما نتأكد من الخناقة، بنحفظ الـ IDs ونفضل متتبعينهم
-        # الـ threat بيتلغي بس لما الأشخاص يختفوا من الصورة
-        self.locked_threat = False          # هل في threat مقفول عليه؟
-        self.locked_p1_id = None            # ID الشخص الأول
-        self.locked_p2_id = None            # ID الشخص التاني
-        self.locked_missing_frames = 0      # كام فريم الأشخاص مش موجودين
-        self.LOCK_RELEASE_FRAMES = 45       # ~1.5 ثانية لازم يختفوا عشان نلغي
+        self.locked_threat = False          
+        self.locked_p1_id = None            
+        self.locked_p2_id = None            
+        self.locked_missing_frames = 0      
+        self.LOCK_RELEASE_FRAMES = 45       
 
         self.prev_frame = None
         self.camera_vx = 0.0
@@ -159,12 +138,7 @@ class ThreatDetector(Node):
         self.current_fps = 0.0
 
         self.get_logger().info("=" * 60)
-        self.get_logger().info("Nebula Threat Detector v2.4.1 - Patient but Faster")
-        self.get_logger().info(f"  Multi-factor: >= {self.MIN_ACTIVE_FACTORS} of 5 required")
-        self.get_logger().info(f"  Confirm frames: {self.THREAT_CONFIRM_FRAMES} (~{self.THREAT_CONFIRM_FRAMES/30:.1f}s)")
-        self.get_logger().info(f"  Sustained ratio: {self.MIN_SUSTAINED_RATIO:.0%} of window")
-        self.get_logger().info(f"  Post-threat cooldown: {self.POST_THREAT_COOLDOWN} frames")
-        self.get_logger().info(f"  Factor thresholds: {self.FACTOR_THRESHOLDS}")
+        self.get_logger().info("Nebula Threat Detector v2.4.4 - The Striking Distance Fix")
         self.get_logger().info("=" * 60)
 
     # ============================================================
@@ -294,12 +268,16 @@ class ThreatDetector(Node):
     #                     Tracking
     # ============================================================
 
-    def get_person_id(self, cx, cy, box):
+    def get_person_id(self, cx, cy, box, current_ids_in_frame):
         best_id = None
         best_score = float('inf')
         for pid, history in self.person_history.items():
             if self.missing_frames.get(pid, 0) > 0:
                 continue
+                
+            if pid in current_ids_in_frame:
+                continue
+
             last = history[-1]
             dist = math.sqrt((cx - last['cx'])**2 + (cy - last['cy'])**2)
             if dist > self.TRACKING_THRESHOLD * 1.5:
@@ -310,6 +288,7 @@ class ThreatDetector(Node):
             if score < self.TRACKING_THRESHOLD and score < best_score:
                 best_score = score
                 best_id = pid
+        
         if best_id is None:
             best_id = self.next_id
             self.next_id += 1
@@ -321,7 +300,6 @@ class ThreatDetector(Node):
     # ============================================================
 
     def get_relative_velocity(self, pid):
-        """Velocity relative to camera - simple translation-compensated"""
         history = self.person_history.get(pid, [])
         if len(history) < 4:
             return 0.0, 0.0
@@ -330,130 +308,83 @@ class ThreatDetector(Node):
         return raw_vx - self.camera_vx, raw_vy - self.camera_vy
 
     def get_agitation(self, pid):
-        """
-        ✨ v2.4.2: Agitation محسوبة بطريقة IMMUNE لحركة الكاميرا
-        
-        بدل ما نحسب direction changes (اللي بتتأثر بالـ camera motion)
-        بنحسب مؤشرين مش بيتأثروا بحركة الكاميرا:
-        
-        1. SIZE VARIANCE: لو الشخص بيتخانق، حجمه بيتغير بسرعة
-           (بيتحرك قدام وورا، بينحني، بيوقع). شخص ماشي عادي حجمه ثابت.
-        
-        2. ASPECT RATIO CHANGES: الشخص بيتغير شكله أثناء الخناقة
-           (إيده ممدودة، جسمه مايل). ماشي عادي = شكل ثابت.
-        
-        الميزة: الكاميرا لما بتتحرك أو بتلف، حجم الشخص مش بيتغير!
-        فمفيش false agitation من حركة الدرون.
-        """
         history = self.person_history.get(pid, [])
         if len(history) < 10:
             return 0.0
 
-        # 1. SIZE VARIANCE - تغير حجم الشخص
+        # 1. Size Variance
         areas = []
         for h in history:
             w = h.get('w', 0)
             ht = h.get('h', 0)
             if w > 0 and ht > 0:
                 areas.append(w * ht)
-
         if len(areas) < 6:
             return 0.0
-
         avg_area = sum(areas) / len(areas)
         if avg_area == 0:
             return 0.0
-
-        # Normalized variance of area (0 = ثابت، 1+ = بيتغير)
         area_variance = sum((a - avg_area)**2 for a in areas) / len(areas)
-        area_cv = math.sqrt(area_variance) / avg_area  # coefficient of variation
+        area_cv = math.sqrt(area_variance) / avg_area 
 
-        # 2. ASPECT RATIO CHANGES
+        # 2. Aspect Ratio Changes
         ratios = []
         for h in history:
             w = h.get('w', 1)
             ht = h.get('h', 1)
             if w > 0 and ht > 0:
                 ratios.append(w / ht)
-
         ratio_changes = 0
         for i in range(1, len(ratios)):
             if abs(ratios[i] - ratios[i-1]) > 0.05:
                 ratio_changes += 1
         ratio_score = ratio_changes / len(ratios) if ratios else 0.0
 
-        # 3. INTER-FRAME JITTER (size-normalized)
-        # حتى لو الكاميرا بتتحرك، الـ jitter النسبي لحجم الشخص بيكون مختلف
-        # شخص بيتخانق: حركات مفاجئة وغير متساقة
-        # شخص ماشي: حركة smooth
+        # 3. Inter-frame Jitter
         avg_width = sum(h.get('w', 30) for h in history) / len(history)
         jitter_count = 0
         jitter_total = 0
-
         for i in range(2, len(history)):
-            # بنحسب acceleration (تغير السرعة) مش velocity
-            # acceleration أقل تأثراً بحركة الكاميرا من velocity
             dx1 = history[i-1]['cx'] - history[i-2]['cx']
             dy1 = history[i-1]['cy'] - history[i-2]['cy']
             dx2 = history[i]['cx'] - history[i-1]['cx']
             dy2 = history[i]['cy'] - history[i-1]['cy']
-
-            # acceleration = change in velocity
             ax = dx2 - dx1
             ay = dy2 - dy1
             accel = math.sqrt(ax**2 + ay**2)
-
-            # normalize by person size
             if avg_width > 0:
                 norm_accel = accel / avg_width
                 jitter_total += 1
-                if norm_accel > 0.25:  # ⬆ من 0.15 - أقل حساسية لاهتزاز الكاميرا
+                if norm_accel > 0.25:  
                     jitter_count += 1
-
         jitter_score = jitter_count / jitter_total if jitter_total > 0 else 0.0
 
-        # Combined agitation score
-        # area_cv: 0.0-0.3 typical range
-        # ratio_score: 0.0-1.0
-        # jitter_score: 0.0-1.0
+        # ✨ TWEAK: Lowered normalizers so drone can detect agitation from far distances
         agitation = (
-            0.3 * min(area_cv / 0.15, 1.0) +      # size variance
-            0.2 * min(ratio_score / 0.3, 1.0) +    # aspect ratio changes
-            0.5 * min(jitter_score / 0.4, 1.0)      # acceleration jitter
+            0.3 * min(area_cv / 0.10, 1.0) +      # Was 0.15
+            0.2 * min(ratio_score / 0.20, 1.0) +  # Was 0.30
+            0.5 * min(jitter_score / 0.25, 1.0)   # Was 0.40
         )
-
         return min(agitation, 1.0)
 
     def get_approach_score(self, p1_id, p2_id, p1, p2):
-        """
-        ✨ v2.4.2: Approach based on DISTANCE CHANGE over time
-        بدل velocity projection (اللي بتتأثر بالكاميرا)
-        بنشوف هل المسافة بين الشخصين بتقل ولا لأ
-        """
         h1 = self.person_history.get(p1_id, [])
         h2 = self.person_history.get(p2_id, [])
 
         if len(h1) < 5 or len(h2) < 5:
             return 0.0
 
-        # مسافة دلوقتي
         dist_now = math.sqrt(
             (h1[-1]['cx'] - h2[-1]['cx'])**2 +
             (h1[-1]['cy'] - h2[-1]['cy'])**2)
-
-        # مسافة من 4 فريمات
         dist_prev = math.sqrt(
             (h1[-4]['cx'] - h2[-4]['cx'])**2 +
             (h1[-4]['cy'] - h2[-4]['cy'])**2)
 
-        # لو المسافة بتقل = approaching
         if dist_prev <= 0:
             return 0.0
 
-        closing_rate = (dist_prev - dist_now) / dist_prev  # نسبة الاقتراب
-
-        # closing_rate > 0 = بيقربوا
-        # closing_rate > 0.1 = بيقربوا بسرعة
+        closing_rate = (dist_prev - dist_now) / dist_prev  
         if closing_rate <= 0:
             return 0.0
 
@@ -484,14 +415,13 @@ class ThreatDetector(Node):
             del self.pair_threat_history[key]
 
     # ============================================================
-    #          Threat Scoring v2.4 - Multi-Factor + Patient
+    #          Threat Scoring v2.4.4 
     # ============================================================
 
     def compute_threat_score(self, p1, p2, p1_id, p2_id):
         box1 = (p1['x1'], p1['y1'], p1['x2'], p1['y2'])
         box2 = (p2['x1'], p2['y1'], p2['x2'], p2['y2'])
 
-        # GATE 0: Distance (relative to person size)
         distance = math.sqrt((p1['cx'] - p2['cx'])**2 + (p1['cy'] - p2['cy'])**2)
         avg_width = (p1['w'] + p2['w']) / 2.0
         max_dist = avg_width * self.MAX_DISTANCE_FACTOR
@@ -499,22 +429,21 @@ class ThreatDetector(Node):
         if distance > max_dist:
             return 0.0, self._make_details(gate='TOO_FAR')
 
-        # ✨ v2.4.1: Size-aware factor thresholds
-        # لما الأشخاص بعيدين عن الدرون (صغيرين في الصورة)
-        # الـ proximity threshold بينخفض عشان المسافة بالبيكسل بتكون صغيرة
-        # بس الـ agitation threshold بيفضل ثابت عشان مهم للدقة
-        is_far = avg_width < 40  # أشخاص صغيرين = بعيدين عن الدرون
+        is_far = avg_width < 40  
 
-        # Compute raw factor scores
         overlap_raw = self.compute_overlap_ratio(box1, box2)
         overlap_score = min(overlap_raw / 0.8, 1.0)
 
+        # ✨ NEW: The Striking Distance Fix
         dynamic_threshold = avg_width * self.PROXIMITY_FACTOR
-        if distance < dynamic_threshold:
-            proximity_score = 1.0 - (distance / dynamic_threshold)
+        striking_dist = avg_width * 1.2  # مسافة الضرب الفعلية
+
+        if distance <= striking_dist:
+            proximity_score = 1.0
+        elif distance < dynamic_threshold:
+            # تدريج من 1.0 لحد 0.0 بناءً على المسافة بين Striking و Dynamic
+            proximity_score = 1.0 - ((distance - striking_dist) / (dynamic_threshold - striking_dist))
         else:
-            # ✨ لما يكونوا أبعد من dynamic_threshold بس لسه جوا max_dist
-            # نديهم proximity score صغير بدل 0 - خصوصاً لو بعيدين عن الدرون
             if is_far and distance < max_dist:
                 proximity_score = 0.1 * (1.0 - distance / max_dist)
             else:
@@ -526,6 +455,9 @@ class ThreatDetector(Node):
         agitation_score = min(max_agitation / 0.8, 1.0)
 
         approach_score = self.get_approach_score(p1_id, p2_id, p1, p2)
+        # ✨ NEW: Give approach points automatically if already in combat range
+        if distance <= striking_dist:
+            approach_score = max(approach_score, 0.75)
 
         v_overlap = self.compute_vertical_overlap(box1, box2)
         vertical_score = min(v_overlap / 0.7, 1.0)
@@ -538,15 +470,12 @@ class ThreatDetector(Node):
             'vertical':  vertical_score,
         }
 
-        # GATE 1: Agitation minimum (ثابت - مش بيتغير بالمسافة)
         if max_agitation < self.MIN_AGITATION_GATE:
             return 0.0, self._make_details(scores=scores, gate='LOW_AGITATION')
 
-        # GATE 2: Interaction minimum
-        # ✨ لو بعيدين عن الدرون، نخفف الـ interaction gate
         effective_interaction_min = self.MIN_INTERACTION_SCORE
         if is_far:
-            effective_interaction_min *= 0.5  # نص الحد لو بعيدين
+            effective_interaction_min *= 0.5  
 
         interaction = (
             (self.W_OVERLAP * overlap_score + self.W_PROXIMITY * proximity_score) /
@@ -554,8 +483,6 @@ class ThreatDetector(Node):
         if interaction < effective_interaction_min:
             return 0.0, self._make_details(scores=scores, gate='LOW_INTERACTION')
 
-        # GATE 3: MULTI-FACTOR CHECK
-        # ✨ لو بعيدين عن الدرون، 2 factors كفاية بدل 3
         effective_min_factors = self.MIN_ACTIVE_FACTORS
         if is_far:
             effective_min_factors = 2
@@ -564,7 +491,6 @@ class ThreatDetector(Node):
         active_list = []
         for name, val in scores.items():
             threshold = self.FACTOR_THRESHOLDS[name]
-            # ✨ proximity و overlap thresholds أقل لو بعيدين
             if is_far and name in ('proximity', 'overlap', 'vertical'):
                 threshold *= 0.6
             if val >= threshold:
@@ -574,9 +500,8 @@ class ThreatDetector(Node):
         if active_factors < effective_min_factors:
             return 0.0, self._make_details(
                 scores=scores, gate=f'LOW_FACTORS({active_factors}/{effective_min_factors})',
-                active=active_list)
+                active=active_list, min_req=effective_min_factors)
 
-        # All gates passed - compute weighted score
         total_score = (
             self.W_OVERLAP   * overlap_score +
             self.W_PROXIMITY * proximity_score +
@@ -585,7 +510,6 @@ class ThreatDetector(Node):
             self.W_VERTICAL  * vertical_score
         )
 
-        # Pair consistency
         consistency = self.get_pair_consistency(p1_id, p2_id)
         if consistency < self.MIN_PAIR_CONSISTENCY:
             total_score *= 0.5
@@ -594,14 +518,14 @@ class ThreatDetector(Node):
 
         return total_score, self._make_details(
             scores=scores, gate='PASSED', total=total_score,
-            active=active_list, active_count=active_factors)
+            active=active_list, active_count=active_factors, min_req=effective_min_factors)
 
-    def _make_details(self, scores=None, gate='', total=0.0, active=None, active_count=0):
+    def _make_details(self, scores=None, gate='', total=0.0, active=None, active_count=0, min_req=4):
         d = {
             'overlap': 0.0, 'proximity': 0.0, 'agitation': 0.0,
             'approach': 0.0, 'vertical': 0.0, 'total': total,
             'gate': gate, 'active_factors': active_count,
-            'active_list': active or []
+            'active_list': active or [], 'min_req': min_req
         }
         if scores:
             d.update(scores)
@@ -609,32 +533,23 @@ class ThreatDetector(Node):
         return d
 
     # ============================================================
-    #              Sustained Scoring Check (v2.4)
+    #              Sustained Scoring Check 
     # ============================================================
 
     def is_sustained_threat(self, current_score):
-        """
-        ✨ v2.4.2: بنشيك إن الـ score فضل عالي لفترة
-        لازم 15 فريم على الأقل في الـ history عشان نحكم
-        وده ~0.5 ثانية - false threat لمدة أقل من كده مش هيعدي
-        """
         self.score_history.append(current_score)
-
-        # لازم نكون شوفنا 15 فريم على الأقل عشان نحكم
         if len(self.score_history) < 15:
             return False
-
         above_count = sum(1 for s in self.score_history
                           if s >= self.THREAT_SCORE_THRESHOLD)
         ratio = above_count / len(self.score_history)
         return ratio >= self.MIN_SUSTAINED_RATIO
 
     # ============================================================
-    #                 Threat Lock System (v2.4.3)
+    #                 Threat Lock System 
     # ============================================================
 
     def _engage_lock(self, p1_id, p2_id):
-        """تفعيل الـ lock على شخصين بيتخانقوا"""
         self.locked_threat = True
         self.locked_p1_id = p1_id
         self.locked_p2_id = p2_id
@@ -642,7 +557,6 @@ class ThreatDetector(Node):
         self.get_logger().warn(f"LOCKED on P{p1_id} & P{p2_id}")
 
     def _release_lock(self):
-        """تحرير الـ lock"""
         old_p1 = self.locked_p1_id
         old_p2 = self.locked_p2_id
         self.locked_threat = False
@@ -657,7 +571,7 @@ class ThreatDetector(Node):
         self.score_history.clear()
         self.in_cooldown = True
         self.cooldown_counter = 0
-        self.get_logger().info(f"LOCK RELEASED (P{old_p1} & P{old_p2} disappeared)")
+        self.get_logger().info(f"LOCK RELEASED (P{old_p1} & P{old_p2} disappeared or separated)")
 
     # ============================================================
     #                     Stability Checks
@@ -691,7 +605,6 @@ class ThreatDetector(Node):
 
         can_score = self.is_startup_done() and self.is_camera_stable()
 
-        # Post-threat cooldown
         if self.in_cooldown:
             self.cooldown_counter += 1
             if self.cooldown_counter >= self.POST_THREAT_COOLDOWN:
@@ -700,7 +613,6 @@ class ThreatDetector(Node):
             else:
                 can_score = False
 
-        # YOLO
         enhanced = self.preprocess_image(cv_image)
         results = self.model(
             enhanced, classes=[0], conf=self.CONFIDENCE,
@@ -716,7 +628,7 @@ class ThreatDetector(Node):
                 width = x2 - x1
                 conf = float(box.conf[0])
 
-                pid = self.get_person_id(cx, cy, (x1, y1, x2, y2))
+                pid = self.get_person_id(cx, cy, (x1, y1, x2, y2), current_ids)
                 height = y2 - y1
 
                 self.person_history[pid].append({
@@ -731,7 +643,6 @@ class ThreatDetector(Node):
                     'conf': conf
                 })
 
-                # ✨ لو الشخص ده مقفول عليه = أحمر، غير كده = أخضر
                 if self.locked_threat and pid in (self.locked_p1_id, self.locked_p2_id):
                     color = (0, 0, 255)
                     thickness = 3
@@ -743,7 +654,6 @@ class ThreatDetector(Node):
                             (x1, y1 - 5),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
 
-        # Grace period
         for pid in list(self.person_history.keys()):
             if pid not in current_ids:
                 self.missing_frames[pid] = self.missing_frames.get(pid, 0) + 1
@@ -768,8 +678,20 @@ class ThreatDetector(Node):
                 for j in range(i + 1, len(persons)):
                     p1 = persons[i]
                     p2 = persons[j]
+
+                    if p1['id'] == p2['id']:
+                        continue
+
+                    overlap_raw = self.compute_overlap_ratio(
+                        (p1['x1'], p1['y1'], p1['x2'], p1['y2']),
+                        (p2['x1'], p2['y1'], p2['x2'], p2['y2'])
+                    )
+                    if overlap_raw > 0.85:
+                        continue 
+
                     score, details = self.compute_threat_score(
                         p1, p2, p1['id'], p2['id'])
+                    
                     if score > best_score:
                         best_score = score
                         best_details = details
@@ -778,55 +700,50 @@ class ThreatDetector(Node):
                         target_cx = (p1['cx'] + p2['cx']) // 2
                         target_cy = (p1['cy'] + p2['cy']) // 2
 
-        # ✨ v2.4: Sustained check
         sustained = self.is_sustained_threat(best_score)
         raw_threat = best_score >= self.THREAT_SCORE_THRESHOLD and sustained
 
-        # Publish score
         score_msg = Float32()
         score_msg.data = float(best_score)
         self.threat_score_pub.publish(score_msg)
 
         # ============================================================
-        #          ✨ v2.4.3: THREAT LOCK SYSTEM
+        #          THREAT LOCK SYSTEM
         # ============================================================
-        # مرحلة 1: قبل التأكيد - counter عادي
-        # مرحلة 2: بعد التأكيد - LOCK على الأشخاص
-        #          الـ threat بيتلغي بس لما الأشخاص يختفوا
-
         if self.locked_threat:
-            # === LOCKED MODE ===
-            # بنشوف هل الأشخاص المقفول عليهم لسه موجودين في الصورة
             p1_found = self.locked_p1_id in current_ids
             p2_found = self.locked_p2_id in current_ids
 
-            if p1_found or p2_found:
-                # لسه موجودين - نفضل مقفولين عليهم
+            for p in persons:
+                if p['id'] == self.locked_p1_id:
+                    self.last_threat_p1 = p
+                if p['id'] == self.locked_p2_id:
+                    self.last_threat_p2 = p
+
+            still_close = False
+            if p1_found and p2_found and self.last_threat_p1 and self.last_threat_p2:
+                dist = math.sqrt((self.last_threat_p1['cx'] - self.last_threat_p2['cx'])**2 +
+                                 (self.last_threat_p1['cy'] - self.last_threat_p2['cy'])**2)
+                avg_w = (self.last_threat_p1['w'] + self.last_threat_p2['w']) / 2.0
+                max_allowed_dist = avg_w * self.MAX_DISTANCE_FACTOR * 1.5 
+                if dist < max_allowed_dist:
+                    still_close = True
+
+            if p1_found and p2_found and still_close:
                 self.locked_missing_frames = 0
                 threat_detected = True
-
-                # نحدث الـ target position لو موجودين
-                for p in persons:
-                    if p['id'] == self.locked_p1_id:
-                        self.last_threat_p1 = p
-                    if p['id'] == self.locked_p2_id:
-                        self.last_threat_p2 = p
-
-                if self.last_threat_p1 and self.last_threat_p2:
-                    target_cx = (self.last_threat_p1['cx'] + self.last_threat_p2['cx']) // 2
-                    target_cy = (self.last_threat_p1['cy'] + self.last_threat_p2['cy']) // 2
-            else:
-                # الأشخاص اختفوا - بنستنى شوية قبل ما نلغي
+                target_cx = (self.last_threat_p1['cx'] + self.last_threat_p2['cx']) // 2
+                target_cy = (self.last_threat_p1['cy'] + self.last_threat_p2['cy']) // 2
+                
+            elif (p1_found or p2_found) and self.locked_missing_frames < self.LOCK_RELEASE_FRAMES and not (p1_found and p2_found and not still_close):
                 self.locked_missing_frames += 1
-                if self.locked_missing_frames >= self.LOCK_RELEASE_FRAMES:
-                    # اختفوا لفترة كافية - نلغي الـ lock
-                    threat_detected = False
-                    self._release_lock()
-                else:
-                    # لسه بنستنى - نفضل على آخر position
-                    threat_detected = True
+                threat_detected = True
+            
+            else:
+                threat_detected = False
+                self._release_lock()
+                
         else:
-            # === NORMAL MODE (pre-confirmation) ===
             if raw_threat:
                 self.threat_frame_count = min(
                     self.threat_frame_count + 1,
@@ -839,7 +756,6 @@ class ThreatDetector(Node):
 
             threat_detected = self.threat_frame_count >= self.THREAT_CONFIRM_FRAMES
 
-            # لو تأكدنا - ندخل LOCK MODE
             if threat_detected and threat_p1 and threat_p2:
                 self._engage_lock(threat_p1['id'], threat_p2['id'])
 
@@ -861,7 +777,6 @@ class ThreatDetector(Node):
                               (p2['x1'], p2['y1']), (p2['x2'], p2['y2']),
                               (0, 0, 255), 3)
 
-        # Score bar
         bar_x = img_width - 30
         bar_h = int(best_score * 150)
         bar_color = (0, 0, 255) if best_score >= self.THREAT_SCORE_THRESHOLD else (0, 255, 255)
@@ -870,12 +785,12 @@ class ThreatDetector(Node):
         cv2.putText(cv_image, f"{best_score:.2f}", (bar_x - 10, 175),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, bar_color, 1)
 
-        # Score breakdown
         if best_details:
             y_offset = img_height - 120
             gate = best_details.get('gate', '')
             active_list = best_details.get('active_list', [])
             af = best_details.get('active_factors', 0)
+            min_req = best_details.get('min_req', self.MIN_ACTIVE_FACTORS)
 
             for key in ['overlap', 'proximity', 'agitation', 'approach', 'vertical']:
                 val = best_details.get(key, 0.0)
@@ -892,7 +807,7 @@ class ThreatDetector(Node):
             cv2.putText(cv_image, f"GATE: {gate}", (img_width - 180, y_offset),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.32, gate_color, 1)
             y_offset += 14
-            cv2.putText(cv_image, f"Factors: {af}/{self.MIN_ACTIVE_FACTORS}",
+            cv2.putText(cv_image, f"Factors: {af}/{min_req}",
                         (img_width - 180, y_offset),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.32, (200, 200, 200), 1)
 
@@ -906,15 +821,7 @@ class ThreatDetector(Node):
                 al = ','.join(best_details.get('active_list', []))
                 self.get_logger().warn(
                     f"Score: {self.last_threat_score:.3f} | "
-                    f"Active: [{al}] ({best_details.get('active_factors',0)}/5)")
-                self.get_logger().warn(
-                    f"OVR={best_details.get('overlap',0):.2f} "
-                    f"PRX={best_details.get('proximity',0):.2f} "
-                    f"AGT={best_details.get('agitation',0):.2f} "
-                    f"APR={best_details.get('approach',0):.2f} "
-                    f"VRT={best_details.get('vertical',0):.2f}")
-            self.get_logger().warn(
-                f"Offset: X={target_cx - img_center_x}, Y={target_cy - img_center_y}")
+                    f"Active: [{al}] ({best_details.get('active_factors',0)}/{best_details.get('min_req',5)})")
             self.get_logger().warn("=" * 60)
 
         elif threat_detected and self.threat_active:
@@ -922,8 +829,7 @@ class ThreatDetector(Node):
             if self.threat_log_counter >= self.THREAT_LOG_INTERVAL:
                 self.threat_log_counter = 0
                 self.get_logger().warn(
-                    f"THREAT ACTIVE | Score: {self.last_threat_score:.3f} | "
-                    f"Offset: X={target_cx - img_center_x}, Y={target_cy - img_center_y}")
+                    f"THREAT ACTIVE | Score: {self.last_threat_score:.3f}")
 
         elif not threat_detected and self.threat_active:
             self.threat_active = False
@@ -931,7 +837,6 @@ class ThreatDetector(Node):
             self.last_threat_p1 = None
             self.last_threat_p2 = None
             self.last_threat_score = 0.0
-            # ✨ v2.4: Start cooldown
             self.in_cooldown = True
             self.cooldown_counter = 0
             self.score_history.clear()
@@ -978,7 +883,6 @@ class ThreatDetector(Node):
         cv2.putText(cv_image, f"Stab: {self.smooth_cam_motion:.1f}",
                     (10, 138), cv2.FONT_HERSHEY_SIMPLEX, 0.40, stab_color, 1)
 
-        # Sustained indicator
         if len(self.score_history) >= 5:
             above = sum(1 for s in self.score_history if s >= self.THREAT_SCORE_THRESHOLD)
             ratio = above / len(self.score_history)

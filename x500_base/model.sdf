@@ -46,7 +46,6 @@
         <always_on>1</always_on>
         <update_rate>50</update_rate>
         <air_pressure>
-          <!-- Noise modeled after BMP390 -->
           <pressure>
             <noise type="gaussian">
               <mean>0</mean>
@@ -60,10 +59,6 @@
         <always_on>1</always_on>
         <update_rate>100</update_rate>
         <magnetometer>
-          <!-- TODO: update to fix units and coordinate system when we move past Harmonic -->
-          <!-- See https://github.com/gazebosim/gz-sim/pull/2460 -->
-          <!-- 3mgauss RMS: NOTE: noise is in tesla but sensor reports data in gauss -->
-          <!-- Noise modeled after IIS2MDC -->
           <x>
             <noise type="gaussian">
               <stddev>0.0001</stddev>
@@ -87,8 +82,6 @@
         <update_rate>250</update_rate>
         <imu>
           <angular_velocity>
-            <!-- Noise modeled after IIM42653 -->
-            <!-- 0.05 deg/s converted to rad/s -->
             <x>
               <noise type="gaussian">
                 <mean>0.0</mean>
@@ -109,8 +102,6 @@
             </z>
           </angular_velocity>
           <linear_acceleration>
-            <!-- Noise modeled after IIM42653 -->
-            <!-- X & Y axis: 0.65 mg-rms converted to m/ss -->
             <x>
               <noise type="gaussian">
                 <mean>0.0</mean>
@@ -123,7 +114,6 @@
                 <stddev>0.00637</stddev>
               </noise>
             </y>
-            <!-- Z axis: 0.70 mg-rms converted to m/ss-->
             <z>
               <noise type="gaussian">
                 <mean>0.0</mean>
@@ -160,7 +150,7 @@
       <self_collide>0</self_collide>
     </link>
 
-<link name="cgo3_mount_link">
+    <link name="cgo3_mount_link">
       <inertial>
         <pose>-0.041 0 -0.162 0 0 0</pose>
         <mass>0.1</mass>
@@ -176,7 +166,7 @@
             <uri>model://x500_base/meshes/cgo3_mount_remeshed_v1.stl</uri>
           </mesh>
         </geometry>
-          <material>
+        <material>
           <script>
             <name>Gazebo/DarkGrey</name>
             <uri>file://media/materials/scripts/gazebo.material</uri>
@@ -210,7 +200,7 @@
             <uri>model://x500_base/meshes/cgo3_vertical_arm_remeshed_v1.stl</uri>
           </mesh>
         </geometry>
-          <material>
+        <material>
           <script>
             <name>Gazebo/DarkGrey</name>
             <uri>file://media/materials/scripts/gazebo.material</uri>
@@ -250,7 +240,7 @@
             <uri>model://x500_base/meshes/cgo3_horizontal_arm_remeshed_v1.stl</uri>
           </mesh>
         </geometry>
-          <material>
+        <material>
           <script>
             <name>Gazebo/DarkGrey</name>
             <uri>file://media/materials/scripts/gazebo.material</uri>
@@ -299,7 +289,7 @@
       </visual>
 
       <sensor name="camera" type="camera">
-        <pose>0.0 0 -0.162 0 0 0</pose>
+        <pose>0.0 0 -0.162 0 0.785 0</pose>
         <camera>
           <horizontal_fov>2.0</horizontal_fov>
           <image>
@@ -315,10 +305,10 @@
         <always_on>1</always_on>
         <update_rate>30</update_rate>
         <visualize>true</visualize>
-        </sensor>
+      </sensor>
     </link>
 
-    <joint name='cgo3_camera_joint' type='revolute'>
+    <joint name='cgo3_camera_joint' type='fixed'>
       <child>cgo3_camera_link</child>
       <parent>cgo3_horizontal_arm_link</parent>
       <pose>-0.01 0.03 -0.162 0 0 0</pose>
@@ -351,19 +341,9 @@
       <d_gain>0.1</d_gain>
     </plugin>
 
-    <plugin
-      filename="gz-sim-joint-position-controller-system"
-      name="gz::sim::systems::JointPositionController">
-      <joint_name>cgo3_camera_joint</joint_name>
-      <p_gain>5.0</p_gain>
-      <i_gain>0.05</i_gain>
-      <d_gain>0.1</d_gain>
-    </plugin>
-
-
+  
     <link name="left_leg">
       <inertial>
-        <!-- place holder -->
         <pose>0 -0.14314 -0.207252 0 0 0</pose>
         <mass>0.1</mass>
         <inertia>
@@ -430,7 +410,7 @@
         <geometry>
           <mesh>
             <scale>0.001 0.001 0.001</scale>
-          <uri>model://x500_base/meshes/leg2_remeshed_v3.stl</uri>
+            <uri>model://x500_base/meshes/leg2_remeshed_v3.stl</uri>
           </mesh>
         </geometry>
         <material>
@@ -441,6 +421,7 @@
         </material>
       </visual>
     </link>
+
     <joint name='left_leg_joint' type='fixed'>
       <child>left_leg</child>
       <parent>base_link</parent>
@@ -470,7 +451,6 @@
     <link name="right_leg">
       <pose>0 0 0 0 0 0</pose>
       <inertial>
-        <!-- place holder -->
         <pose>0 0.14314 -0.207252 0 0 0</pose>
         <mass>0.1</mass>
         <inertia>
@@ -537,7 +517,7 @@
         <geometry>
           <mesh>
             <scale>0.001 0.001 0.001</scale>
-         <uri>model://x500_base/meshes/leg1_remeshed_v3.stl</uri>
+            <uri>model://x500_base/meshes/leg1_remeshed_v3.stl</uri>
           </mesh>
         </geometry>
         <material>
@@ -548,6 +528,7 @@
         </material>
       </visual>
     </link>
+
     <joint name='right_leg_joint' type='fixed'>
       <child>right_leg</child>
       <parent>base_link</parent>
@@ -574,10 +555,7 @@
       </physics>
     </joint>
 
-
-
-
-      <link name='rotor_3'>
+    <link name='rotor_3'>
       <pose frame=''>0.211396 0.119762 0.082219 0 0 0</pose>
       <inertial>
         <pose frame=''>0 0 0 0 -0 0</pose>
@@ -599,14 +577,6 @@
             <radius>0.128</radius>
           </cylinder>
         </geometry>
-        <surface>
-          <contact>
-            <ode/>
-          </contact>
-          <friction>
-            <ode/>
-          </friction>
-        </surface>
       </collision>
       <visual name='rotor_3_visual'>
         <pose frame=''>-0.211396 -0.119762 -0.082219 0 0 0</pose>
@@ -619,8 +589,8 @@
         <material>
           <diffuse>1 0 0 1</diffuse>
           <script>
-              <name>Gazebo/Blue</name>
-              <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
           </script>
         </material>
       </visual>
@@ -628,6 +598,7 @@
       <velocity_decay/>
       <self_collide>0</self_collide>
     </link>
+
     <joint name='rotor_3_joint' type='revolute'>
       <child>rotor_3</child>
       <parent>base_link</parent>
@@ -651,8 +622,7 @@
       </physics>
     </joint>
 
-
-          <link name='rotor_0'>
+    <link name='rotor_0'>
       <pose frame=''>-0.209396 0.122762 0.082219 0 0 2.09439510239</pose>
       <inertial>
         <pose frame=''>0 0 0 0 -0 0</pose>
@@ -674,28 +644,20 @@
             <radius>0.128</radius>
           </cylinder>
         </geometry>
-        <surface>
-          <contact>
-            <ode/>
-          </contact>
-          <friction>
-            <ode/>
-          </friction>
-        </surface>
       </collision>
       <visual name='rotor_0_visual'>
         <pose frame=''>-0.211396 -0.119762 -0.082219 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.001 0.001 0.001</scale>
-        <uri>model://x500_base/meshes/prop_ccw_assembly_remeshed_v3.stl</uri>
+            <uri>model://x500_base/meshes/prop_ccw_assembly_remeshed_v3.stl</uri>
           </mesh>
         </geometry>
         <material>
           <diffuse>0 0 1 1</diffuse>
           <script>
-               <name>Gazebo/Blue</name>
-               <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
           </script>
         </material>
       </visual>
@@ -703,6 +665,7 @@
       <velocity_decay/>
       <self_collide>0</self_collide>
     </link>
+
     <joint name='rotor_0_joint' type='revolute'>
       <child>rotor_0</child>
       <parent>base_link</parent>
@@ -748,28 +711,20 @@
             <radius>0.128</radius>
           </cylinder>
         </geometry>
-        <surface>
-          <contact>
-            <ode/>
-          </contact>
-          <friction>
-            <ode/>
-          </friction>
-        </surface>
       </collision>
       <visual name='rotor_4_visual'>
         <pose frame=''>0.00187896 -0.242705 -0.0822169 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.001 0.001 0.001</scale>
-        <uri>model://x500_base/meshes/prop_cw_assembly_remeshed_v3.stl</uri>
+            <uri>model://x500_base/meshes/prop_cw_assembly_remeshed_v3.stl</uri>
           </mesh>
         </geometry>
         <material>
           <diffuse>0 0 1 1</diffuse>
           <script>
-              <name>Gazebo/Red</name>
-              <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Red</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
           </script>
         </material>
       </visual>
@@ -777,6 +732,7 @@
       <velocity_decay/>
       <self_collide>0</self_collide>
     </link>
+
     <joint name='rotor_4_joint' type='revolute'>
       <child>rotor_4</child>
       <parent>base_link</parent>
@@ -799,6 +755,7 @@
         </ode>
       </physics>
     </joint>
+
     <link name='rotor_1'>
       <pose frame=''>0.211396 -0.119762 0.082219 0 0 -2.09439510239</pose>
       <inertial>
@@ -821,28 +778,20 @@
             <radius>0.128</radius>
           </cylinder>
         </geometry>
-        <surface>
-          <contact>
-            <ode/>
-          </contact>
-          <friction>
-            <ode/>
-          </friction>
-        </surface>
       </collision>
       <visual name='rotor_1_visual'>
         <pose frame=''>0.00187896 -0.242705 -0.0822169 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.001 0.001 0.001</scale>
-        <uri>model://x500_base/meshes/prop_cw_assembly_remeshed_v3.stl</uri>
+            <uri>model://x500_base/meshes/prop_cw_assembly_remeshed_v3.stl</uri>
           </mesh>
         </geometry>
         <material>
           <diffuse>0 0 1 1</diffuse>
           <script>
-              <name>Gazebo/Red</name>
-              <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Red</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
           </script>
         </material>
       </visual>
@@ -850,6 +799,7 @@
       <velocity_decay/>
       <self_collide>0</self_collide>
     </link>
+
     <joint name='rotor_1_joint' type='revolute'>
       <child>rotor_1</child>
       <parent>base_link</parent>
@@ -873,8 +823,7 @@
       </physics>
     </joint>
 
-
-   <link name='rotor_5'>
+    <link name='rotor_5'>
       <pose frame=''>-0.00187896 -0.242705 0.0822169 0 0 -2.09439510239</pose>
       <inertial>
         <pose frame=''>0 0 0 0 -0 0</pose>
@@ -896,35 +845,28 @@
             <radius>0.128</radius>
           </cylinder>
         </geometry>
-        <surface>
-          <contact>
-            <ode/>
-          </contact>
-          <friction>
-            <ode/>
-          </friction>
-        </surface>
       </collision>
       <visual name='rotor_5_visual'>
         <pose frame=''>-0.211396 -0.119762 -0.082219 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.001 0.001 0.001</scale>
-        <uri>model://x500_base/meshes/prop_ccw_assembly_remeshed_v3.stl</uri>
+            <uri>model://x500_base/meshes/prop_ccw_assembly_remeshed_v3.stl</uri>
           </mesh>
         </geometry>
         <material>
-            <diffuse>0 0 1 1</diffuse>
-            <script>
-                <name>Gazebo/Blue</name>
-                <uri>file://media/materials/scripts/gazebo.material</uri>
-            </script>
+          <diffuse>0 0 1 1</diffuse>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
         </material>
       </visual>
       <gravity>1</gravity>
       <velocity_decay/>
       <self_collide>0</self_collide>
     </link>
+
     <joint name='rotor_5_joint' type='revolute'>
       <child>rotor_5</child>
       <parent>base_link</parent>
@@ -948,7 +890,6 @@
       </physics>
     </joint>
 
-
     <link name='rotor_2'>
       <pose frame=''>-0.209396 -0.122762 0.082219 0 0 2.09439510239</pose>
       <inertial>
@@ -971,35 +912,28 @@
             <radius>0.128</radius>
           </cylinder>
         </geometry>
-        <surface>
-          <contact>
-            <ode/>
-          </contact>
-          <friction>
-            <ode/>
-          </friction>
-        </surface>
       </collision>
       <visual name='rotor_2_visual'>
         <pose frame=''>0.00187896 -0.242705 -0.0822169 0 0 0</pose>
         <geometry>
           <mesh>
             <scale>0.001 0.001 0.001</scale>
-        <uri>model://x500_base/meshes/prop_cw_assembly_remeshed_v3.stl</uri>
+            <uri>model://x500_base/meshes/prop_cw_assembly_remeshed_v3.stl</uri>
           </mesh>
         </geometry>
         <material>
-            <diffuse>1 0 0 1</diffuse>
-            <script>
-                <name>Gazebo/Red</name>
-                <uri>file://media/materials/scripts/gazebo.material</uri>
-            </script>
+          <diffuse>1 0 0 1</diffuse>
+          <script>
+            <name>Gazebo/Red</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
         </material>
       </visual>
       <gravity>1</gravity>
       <velocity_decay/>
       <self_collide>0</self_collide>
     </link>
+
     <joint name='rotor_2_joint' type='revolute'>
       <child>rotor_2</child>
       <parent>base_link</parent>
