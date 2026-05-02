@@ -1,6 +1,6 @@
 # 🛸 NEBULA: Hexacopter ROS2 PX4 Simulation
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
-![ROS2](https://img.shields.io/badge/ROS2-Humble/Foxy-orange)
+![ROS2](https://img.shields.io/badge/ROS2-Humble-orange)
 ![PX4](https://img.shields.io/badge/PX4-Autopilot-green)
 
 This repository contains the full simulation stack for an autonomous Hexacopter platform, developed by **Team NEBULA**. The project integrates **ROS2** and **PX4 Autopilot** to achieve high-precision flight control and real-time AI-driven threat detection.
@@ -63,5 +63,3 @@ This project was developed by the **NEBULA** team, focusing on pushing the bound
 
 ---
 
-## 📜 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
