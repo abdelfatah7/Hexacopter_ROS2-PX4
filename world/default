@@ -1,0 +1,292 @@
+<?xml version="1.0" ?>
+<!--
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  NEBULA World v2.0 — Dynamic Fight Zones                                     ║
+║  4 Fight zones with REAL translational motion (lunge + recoil)               ║
+║  Each fight cycle: 2.0s attacker lunges → 2.0s reset = 4.0s total           ║
+║  Fight speed: ~0.5 m/s lunge velocity                                        ║
+║  Camera-friendly angles: fighters face each other perpendicular to drone path║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+-->
+<sdf version="1.9">
+  <world name="default">
+
+    <!-- ══════════════════════════ PHYSICS ══════════════════════════ -->
+    <physics type="ode">
+      <max_step_size>0.004</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>250</real_time_update_rate>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system"       name="gz::sim::systems::Physics"></plugin>
+    <plugin filename="gz-sim-user-commands-system"  name="gz::sim::systems::UserCommands"></plugin>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"></plugin>
+    <plugin filename="gz-sim-sensors-system"       name="gz::sim::systems::Sensors"><render_engine>ogre2</render_engine></plugin>
+    <plugin filename="gz-sim-imu-system"           name="gz::sim::systems::Imu"></plugin>
+    <plugin filename="gz-sim-navsat-system"        name="gz::sim::systems::NavSat"></plugin>
+    <plugin filename="gz-sim-contact-system"       name="gz::sim::systems::Contact"></plugin>
+    <plugin filename="gz-sim-magnetometer-system"  name="gz::sim::systems::Magnetometer"></plugin>
+    <plugin filename="gz-sim-altimeter-system"     name="gz::sim::systems::Altimeter"></plugin>
+    <plugin filename="gz-sim-air-pressure-system"  name="gz::sim::systems::AirPressure"></plugin>
+
+    <!-- ══════════════════════════ GPS ORIGIN ══════════════════════════ -->
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>47.397971057728974</latitude_deg>
+      <longitude_deg>8.546163739800146</longitude_deg>
+      <elevation>0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+
+    <!-- ══════════════════════════ SCENE ══════════════════════════ -->
+    <scene>
+      <ambient>0.8 0.8 0.8 1</ambient>
+      <background>0.7 0.7 0.7 1</background>
+      <shadows>true</shadows>
+      <sky><clouds><speed>0.6</speed></clouds></sky>
+    </scene>
+
+    <light name="sunUTC" type="directional">
+      <pose>0 0 500 0 -0 0</pose>
+      <cast_shadows>true</cast_shadows>
+      <intensity>1</intensity>
+      <direction>0.5 0.5 -1</direction>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+    </light>
+
+    <!-- ══════════════════════════ GROUND ══════════════════════════ -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>1 1</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.4 0.4 0.4 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ══════════════════════════ STATIC PROPS ══════════════════════════ -->
+    <include><name>car1</name>       <pose>10 -5 0 0 0 0</pose>     <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Hatchback red</uri></include>
+    <include><name>car2</name>       <pose>-10 5 0 0 0 3.14</pose>  <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/SUV</uri></include>
+    <include><name>car3</name>       <pose>0 15 0 0 0 -1.57</pose>  <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pickup</uri></include>
+    <include><name>tree1</name>      <pose>-5 10 0 0 0 0</pose>     <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine Tree</uri></include>
+    <include><name>tree2</name>      <pose>15 -10 0 0 0 0</pose>    <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak tree</uri></include>
+    <include><name>wheelchair1</name><pose>5 5 0 0 0 1</pose>       <uri>https://fuel.gazebosim.org/1.0/cyborg/models/PatientWheelChair</uri></include>
+    <include><name>chair1</name>     <pose>6 5 0 0 0 0</pose>       <uri>https://fuel.gazebosim.org/1.0/will0993/models/foldable_chair</uri></include>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         BACKGROUND CROWD — walking actors (natural motion, not fighting)
+    ══════════════════════════════════════════════════════════════════ -->
+    <include><name>actor1</name> <pose>3    3    1 0 0  1.0</pose>  <uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+    <include><name>actor3</name> <pose>5   -5    1 0 0  3.0</pose>  <uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+    <include><name>actor6</name> <pose>0    8    1 0 0  1.5</pose>  <uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+    <include><name>actor7</name> <pose>-8   8    1 0 0 -1.0</pose>  <uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+    <include><name>actor8</name> <pose>12   12   1 0 0 -2.0</pose>  <uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+    <include><name>actor9</name>  <pose>-4  -8  1 0 0  0.8</pose>  <uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+    <include><name>actor11</name> <pose>-3  -12 1 0 0  1.2</pose>  <uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+    <include><name>center_ped_2</name><pose>-1.0  -1.8  1 0 0 -0.80</pose><uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+
+    <!-- ╔═══════════════════════════════════════════════════════════════╗
+         ║  ZONE 1 — WP4/WP5/WP6  (FAR EAST)                            ║
+         ║  Center: (11.021, -1.598)                                    ║
+         ║  Drone approaches from WEST → fighters face NORTH-SOUTH      ║
+         ║  Attacker lunges SOUTH toward defender, defender recoils     ║
+         ╚═══════════════════════════════════════════════════════════════╝ -->
+    <actor name="attacker_zone1">
+      <skin><filename>/home/abdelfattah/Downloads/Boxing.dae</filename><scale>0.01</scale></skin>
+      <animation name="boxing"><filename>/home/abdelfattah/Downloads/Boxing.dae</filename><scale>0.01</scale></animation>
+      <script>
+        <loop>true</loop><delay_start>0.0</delay_start><auto_start>true</auto_start>
+        <trajectory id="0" type="boxing">
+          <!-- Start position -->
+          <waypoint><time>0.0</time>  <pose>11.021  0.20 0.85 1.57 0  0.00</pose></waypoint>
+          <!-- Lunge forward (toward defender) at t=0.8s -->
+          <waypoint><time>0.8</time>  <pose>11.021 -0.15 0.85 1.57 0  0.00</pose></waypoint>
+          <!-- Hold for impact -->
+          <waypoint><time>1.2</time>  <pose>11.021 -0.15 0.85 1.57 0  0.00</pose></waypoint>
+          <!-- Reset back -->
+          <waypoint><time>2.0</time>  <pose>11.021  0.20 0.85 1.57 0  0.00</pose></waypoint>
+          <!-- Brief pause -->
+          <waypoint><time>2.5</time>  <pose>11.021  0.20 0.85 1.57 0  0.00</pose></waypoint>
+          <!-- Second lunge (faster) -->
+          <waypoint><time>3.0</time>  <pose>11.021 -0.20 0.85 1.57 0  0.00</pose></waypoint>
+          <!-- Hold -->
+          <waypoint><time>3.4</time>  <pose>11.021 -0.20 0.85 1.57 0  0.00</pose></waypoint>
+          <!-- Reset -->
+          <waypoint><time>4.0</time>  <pose>11.021  0.20 0.85 1.57 0  0.00</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <actor name="defender_zone1">
+      <skin><filename>/home/abdelfattah/Downloads/Outward_Block.dae</filename><scale>0.01</scale></skin>
+      <animation name="blocking"><filename>/home/abdelfattah/Downloads/Outward_Block.dae</filename><scale>0.01</scale></animation>
+      <script>
+        <loop>true</loop><delay_start>0.0</delay_start><auto_start>true</auto_start>
+        <trajectory id="0" type="blocking">
+          <!-- Start position -->
+          <waypoint><time>0.0</time>  <pose>11.021 -0.70 0.85 1.57 0  3.14</pose></waypoint>
+          <!-- Recoil back (away from attacker) at t=0.8s -->
+          <waypoint><time>0.8</time>  <pose>11.021 -1.05 0.85 1.57 0  3.14</pose></waypoint>
+          <!-- Hold -->
+          <waypoint><time>1.2</time>  <pose>11.021 -1.05 0.85 1.57 0  3.14</pose></waypoint>
+          <!-- Reset forward -->
+          <waypoint><time>2.0</time>  <pose>11.021 -0.70 0.85 1.57 0  3.14</pose></waypoint>
+          <!-- Brief pause -->
+          <waypoint><time>2.5</time>  <pose>11.021 -0.70 0.85 1.57 0  3.14</pose></waypoint>
+          <!-- Second recoil -->
+          <waypoint><time>3.0</time>  <pose>11.021 -1.10 0.85 1.57 0  3.14</pose></waypoint>
+          <!-- Hold -->
+          <waypoint><time>3.4</time>  <pose>11.021 -1.10 0.85 1.57 0  3.14</pose></waypoint>
+          <!-- Reset -->
+          <waypoint><time>4.0</time>  <pose>11.021 -0.70 0.85 1.57 0  3.14</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <!-- Witness Zone 1 -->
+    <include><name>witness_z1_c</name><pose>13.60 -3.37 1 0 0  1.95</pose><uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+
+
+    <!-- ╔═══════════════════════════════════════════════════════════════╗
+         ║  ZONE 2 — WP7  (NORTH) — ACTIVATED                           ║
+         ║  Center: (2.016, 5.359)                                      ║
+         ║  Drone approaches from SOUTH → fighters face EAST-WEST       ║
+         ╚═══════════════════════════════════════════════════════════════╝ -->
+    <!-- <actor name="attacker_zone2">
+      <skin><filename>/home/abdelfattah/Downloads/Boxing.dae</filename><scale>0.01</scale></skin>
+      <animation name="boxing"><filename>/home/abdelfattah/Downloads/Boxing.dae</filename><scale>0.01</scale></animation>
+      <script>
+        <loop>true</loop><delay_start>0.0</delay_start><auto_start>true</auto_start>
+        <trajectory id="0" type="boxing">
+          <waypoint><time>0.0</time>  <pose>1.60 5.359 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>0.8</time>  <pose>2.10 5.359 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>1.2</time>  <pose>2.10 5.359 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>2.0</time>  <pose>1.60 5.359 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>2.5</time>  <pose>1.60 5.359 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>3.0</time>  <pose>2.15 5.359 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>3.4</time>  <pose>2.15 5.359 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>4.0</time>  <pose>1.60 5.359 0.85 1.57 0  1.57</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <actor name="defender_zone2">
+      <skin><filename>/home/abdelfattah/Downloads/Outward_Block.dae</filename><scale>0.01</scale></skin>
+      <animation name="blocking"><filename>/home/abdelfattah/Downloads/Outward_Block.dae</filename><scale>0.01</scale></animation>
+      <script>
+        <loop>true</loop><delay_start>0.0</delay_start><auto_start>true</auto_start>
+        <trajectory id="0" type="blocking">
+          <waypoint><time>0.0</time>  <pose>2.80 5.359 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>0.8</time>  <pose>3.20 5.359 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>1.2</time>  <pose>3.20 5.359 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>2.0</time>  <pose>2.80 5.359 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>2.5</time>  <pose>2.80 5.359 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>3.0</time>  <pose>3.25 5.359 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>3.4</time>  <pose>3.25 5.359 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>4.0</time>  <pose>2.80 5.359 0.85 1.57 0 -1.57</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor> -->
+
+    <!-- Witness Zone 2 -->
+    <include><name>witness_z2_a</name><pose>4.44  7.70 1 0 0 -2.51</pose><uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+
+
+    <!-- ╔═══════════════════════════════════════════════════════════════╗
+         ║  ZONE 3 — WP9/WP10  (FAR WEST)                               ║
+         ║  Center: (-6.951, 0.561)                                     ║
+         ║  Drone approaches from EAST → fighters face NORTH-SOUTH      ║
+         ╚═══════════════════════════════════════════════════════════════╝ -->
+    <!-- <actor name="attacker_zone3">
+      <skin><filename>/home/abdelfattah/Downloads/Boxing.dae</filename><scale>0.01</scale></skin>
+      <animation name="boxing"><filename>/home/abdelfattah/Downloads/Boxing.dae</filename><scale>0.01</scale></animation>
+      <script>
+        <loop>true</loop><delay_start>0.0</delay_start><auto_start>true</auto_start>
+        <trajectory id="0" type="boxing">
+          <waypoint><time>0.0</time>  <pose>-6.951  0.15 0.85 1.57 0  0.00</pose></waypoint>
+          <waypoint><time>0.8</time>  <pose>-6.951 -0.20 0.85 1.57 0  0.00</pose></waypoint>
+          <waypoint><time>1.2</time>  <pose>-6.951 -0.20 0.85 1.57 0  0.00</pose></waypoint>
+          <waypoint><time>2.0</time>  <pose>-6.951  0.15 0.85 1.57 0  0.00</pose></waypoint>
+          <waypoint><time>2.5</time>  <pose>-6.951  0.15 0.85 1.57 0  0.00</pose></waypoint>
+          <waypoint><time>3.0</time>  <pose>-6.951 -0.25 0.85 1.57 0  0.00</pose></waypoint>
+          <waypoint><time>3.4</time>  <pose>-6.951 -0.25 0.85 1.57 0  0.00</pose></waypoint>
+          <waypoint><time>4.0</time>  <pose>-6.951  0.15 0.85 1.57 0  0.00</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <actor name="defender_zone3">
+      <skin><filename>/home/abdelfattah/Downloads/Outward_Block.dae</filename><scale>0.01</scale></skin>
+      <animation name="blocking"><filename>/home/abdelfattah/Downloads/Outward_Block.dae</filename><scale>0.01</scale></animation>
+      <script>
+        <loop>true</loop><delay_start>0.0</delay_start><auto_start>true</auto_start>
+        <trajectory id="0" type="blocking">
+          <waypoint><time>0.0</time>  <pose>-6.951 -0.8 0.85 1.57 0  3.14</pose></waypoint>
+          <waypoint><time>0.8</time>  <pose>-6.951 -1.00 0.85 1.57 0  3.14</pose></waypoint>
+          <waypoint><time>1.2</time>  <pose>-6.951 -1.00 0.85 1.57 0  3.14</pose></waypoint>
+          <waypoint><time>2.0</time>  <pose>-6.951 -0.8 0.85 1.57 0  3.14</pose></waypoint>
+          <waypoint><time>2.5</time>  <pose>-6.951 -0.8 0.85 1.57 0  3.14</pose></waypoint>
+          <waypoint><time>3.0</time>  <pose>-6.951 -1.05 0.85 1.57 0  3.14</pose></waypoint>
+          <waypoint><time>3.4</time>  <pose>-6.951 -1.05 0.85 1.57 0  3.14</pose></waypoint>
+          <waypoint><time>4.0</time>  <pose>-6.951 -0.8 0.85 1.57 0  3.14</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor> -->
+
+
+    <!-- ╔═══════════════════════════════════════════════════════════════╗
+         ║  ZONE 4 — WP11/WP12  (FAR SOUTH)                             ║
+         ║  Center: (1.316, -6.430)                                     ║
+         ║  Drone approaches from NORTH → fighters face EAST-WEST       ║
+         ╚═══════════════════════════════════════════════════════════════╝ -->
+    <actor name="attacker_zone4">
+      <skin><filename>/home/abdelfattah/Downloads/Boxing.dae</filename><scale>0.01</scale></skin>
+      <animation name="boxing"><filename>/home/abdelfattah/Downloads/Boxing.dae</filename><scale>0.01</scale></animation>
+      <script>
+        <loop>true</loop><delay_start>0.0</delay_start><auto_start>true</auto_start>
+        <trajectory id="0" type="boxing">
+          <waypoint><time>0.0</time>  <pose>0.90 -6.430 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>0.8</time>  <pose>1.40 -6.430 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>1.2</time>  <pose>1.40 -6.430 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>2.0</time>  <pose>0.90 -6.430 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>2.5</time>  <pose>0.90 -6.430 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>3.0</time>  <pose>1.45 -6.430 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>3.4</time>  <pose>1.45 -6.430 0.85 1.57 0  1.57</pose></waypoint>
+          <waypoint><time>4.0</time>  <pose>0.90 -6.430 0.85 1.57 0  1.57</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <actor name="defender_zone4">
+      <skin><filename>/home/abdelfattah/Downloads/Outward_Block.dae</filename><scale>0.01</scale></skin>
+      <animation name="blocking"><filename>/home/abdelfattah/Downloads/Outward_Block.dae</filename><scale>0.01</scale></animation>
+      <script>
+        <loop>true</loop><delay_start>0.0</delay_start><auto_start>true</auto_start>
+        <trajectory id="0" type="blocking">
+          <waypoint><time>0.0</time>  <pose>2.10 -6.430 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>0.8</time>  <pose>2.50 -6.430 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>1.2</time>  <pose>2.50 -6.430 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>2.0</time>  <pose>2.10 -6.430 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>2.5</time>  <pose>2.10 -6.430 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>3.0</time>  <pose>2.55 -6.430 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>3.4</time>  <pose>2.55 -6.430 0.85 1.57 0 -1.57</pose></waypoint>
+          <waypoint><time>4.0</time>  <pose>2.10 -6.430 0.85 1.57 0 -1.57</pose></waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <!-- Witness Zone 4 -->
+    <include><name>witness_z4_a</name><pose>1.45 -3.11 1 0 0 -1.87</pose><uri>https://fuel.gazebosim.org/1.0/chapulina/models/Walking actor</uri></include>
+
+  </world>
+</sdf>
+
