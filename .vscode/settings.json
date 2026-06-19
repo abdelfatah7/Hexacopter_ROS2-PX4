@@ -1,0 +1,17 @@
+{
+    "ROS2.distro": "humble",
+    "python.autoComplete.extraPaths": [
+        "/home/abdelfattah/Abdelfattah_ws/install/my_py_pkg/lib/python3.10/site-packages",
+        "/home/abdelfattah/Abdelfattah_ws/install/my_py/lib/python3.10/site-packages",
+        "/home/abdelfattah/Abdelfattah_ws/install/chatter_pkg_py/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/abdelfattah/Abdelfattah_ws/install/my_py_pkg/lib/python3.10/site-packages",
+        "/home/abdelfattah/Abdelfattah_ws/install/my_py/lib/python3.10/site-packages",
+        "/home/abdelfattah/Abdelfattah_ws/install/chatter_pkg_py/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ]
+}
